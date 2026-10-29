@@ -4,17 +4,13 @@ test("personal plan, portion editing, persistence and favorites", async ({
   page,
 }) => {
   await page.goto("/");
-  await expect(
-    page.getByRole("button", { name: "Добавить еду", exact: true }),
-  ).toBeEnabled();
-  await expect(
-    page.getByRole("heading", { name: "Твой баланс на сегодня" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Ты больше,чем цифры.",
+  );
   await page
-    .getByRole("button", { name: "Настроить мой план" })
-    .first()
+    .getByRole("button", { name: "Найти свой баланс", exact: true })
     .click();
-  let dialog = page.getByRole("dialog");
+  let dialog = page.locator(".welcome-copy");
   await dialog.getByRole("button", { name: "Снизить вес" }).click();
   await dialog.getByRole("button", { name: "Далее" }).click();
   await dialog.getByLabel("Как тебя называть?").fill("Зарина");
@@ -77,6 +73,7 @@ test("three languages, dark theme, manual recipe, export and deletion", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Пока просто посмотреть" }).click();
   await expect(
     page.getByRole("button", { name: "Добавить еду", exact: true }),
   ).toBeEnabled();
@@ -138,6 +135,7 @@ test("photo flow is honest without a configured account; layout has no overflow"
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
+  await page.getByRole("button", { name: "Пока просто посмотреть" }).click();
   await expect(
     page.getByRole("button", { name: "Добавить еду", exact: true }),
   ).toBeEnabled();
@@ -193,4 +191,52 @@ test("analysis endpoint rejects cross-origin and validates inputs", async ({
   });
   expect(response.status()).toBe(503);
   expect((await response.json()).error).toContain("not connected");
+});
+
+test("welcome languages, explicit skip, persistence and replay", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "Ты больше",
+  );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "You are more",
+  );
+  await page.getByRole("button", { name: "UZ", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "Sen raqamlardan",
+  );
+  await page.getByRole("button", { name: "RU", exact: true }).click();
+  await page.screenshot({
+    path: `test-results/welcome-${test.info().project.name}.png`,
+    fullPage: true,
+  });
+  await page
+    .getByRole("button", { name: "Конфиденциальность", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Пока просто посмотреть" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Твой баланс на сегодня" }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Твой баланс на сегодня" }),
+  ).toBeVisible();
+  await page.goto("/?welcome=1");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "Ты больше",
+  );
+  await page.getByRole("button", { name: "Уже есть аккаунт? Войти" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Твой аккаунт", exact: true }),
+  ).toBeVisible();
 });

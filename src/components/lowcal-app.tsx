@@ -45,6 +45,7 @@ import { Dialog } from "./dialog";
 import { ProfileForm } from "./profile-form";
 import { FoodForm } from "./food-form";
 import { AdminAccess } from "./admin-access";
+import { WelcomeScreen } from "./welcome-screen";
 
 type Page = "diary" | "progress" | "favorites" | "settings";
 type Modal = "profile" | "food" | "privacy" | "terms" | "pro" | "weight" | null;
@@ -70,6 +71,8 @@ export function LowcalApp() {
       "search",
     ),
     [editing, setEditing] = useState<Food | undefined>();
+  const [welcomeDone, setWelcomeDone] = useState(false);
+  const [forceWelcome, setForceWelcome] = useState(false);
   const [quickFood, setQuickFood] = useState<Food | undefined>();
   const [toast, setToast] = useState(""),
     [email, setEmail] = useState(""),
@@ -89,10 +92,13 @@ export function LowcalApp() {
   const today = localDate();
   useEffect(() => {
     try {
+      setWelcomeDone(localStorage.getItem("lowcal:welcome:v1") === "done");
       const l = localStorage.getItem("lowcal:language");
       if (l === "en" || l === "uz" || l === "ru") setLang(l);
       if (localStorage.getItem("lowcal:theme") === "dark") setTheme("dark");
     } catch {}
+    if (new URLSearchParams(window.location.search).get("welcome") === "1")
+      setForceWelcome(true);
     if (new URLSearchParams(window.location.search).has("auth_error"))
       setAuthMessage(translations.ru.authUnavailable);
   }, []);
@@ -135,6 +141,16 @@ export function LowcalApp() {
     setFoodMode(mode);
     setEditing(food);
     setModal("food");
+  };
+  const dismissWelcome = () => {
+    setWelcomeDone(true);
+    setForceWelcome(false);
+    try {
+      localStorage.setItem("lowcal:welcome:v1", "done");
+    } catch {}
+    const url = new URL(window.location.href);
+    url.searchParams.delete("welcome");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
   };
   const saveFoods = (foods: Food[]) => {
     if (!diary.editable) return;
@@ -283,6 +299,33 @@ export function LowcalApp() {
         <span className="loading-bar" />
       </main>
     );
+  if (
+    forceWelcome ||
+    (!welcomeDone &&
+      !data.profile &&
+      !data.foods.length &&
+      !data.weights.length &&
+      !data.favorites.length)
+  ) {
+    return (
+      <WelcomeScreen
+        lang={lang}
+        onLanguage={setLang}
+        t={t}
+        editable={diary.editable}
+        onFinish={(profile) => {
+          if (!diary.editable) return;
+          saveProfile(profile);
+          dismissWelcome();
+        }}
+        onSkip={dismissWelcome}
+        onAccount={() => {
+          dismissWelcome();
+          changePage("settings");
+        }}
+      />
+    );
+  }
   return (
     <div className="app-shell">
       {menu && (
